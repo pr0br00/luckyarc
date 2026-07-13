@@ -1,0 +1,7 @@
+{
+  "name": "luckyarc",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "build": "node scripts/compile.js" },
+  "devDependencies": { "solc": "0.8.24" }
+}
