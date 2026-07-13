@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>LuckyArc — no-loss prize savings on Arc</title>
 <meta name="description" content="Deposit USDC, withdraw anytime, win the daily prize. No-loss lottery on Arc testnet." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🍀</text></svg>" />
+<meta property="og:title" content="LuckyArc — no-loss prize savings on Arc" />
+<meta property="og:description" content="Save USDC. Win the prize. Never lose your deposit." />
+<meta property="og:image" content="https://luckyarc.xyz/og.png" />
+<meta property="og:url" content="https://luckyarc.xyz" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://luckyarc.xyz/og.png" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
 <style>
   :root {
@@ -71,6 +79,18 @@
   }
   .foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 30px; }
   .foot a { color: var(--accent); text-decoration: none; }
+  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
+  .how .step { background: var(--card); border: 1px solid #222b42; border-radius: var(--radius); padding: 18px; }
+  .how .n { font-size: 24px; margin-bottom: 6px; }
+  .how h4 { font-size: 15px; margin-bottom: 4px; }
+  .how p { font-size: 13px; color: var(--muted); }
+  .honest { background: var(--card); border: 1px dashed #33406a; border-radius: var(--radius); padding: 16px 20px; margin: 4px 0 26px; font-size: 13px; color: var(--muted); }
+  .honest b { color: var(--text); }
+  .cta { display: inline-block; margin-top: 18px; background: var(--accent); color: #06220f; font-weight: 700; padding: 12px 26px; border-radius: 10px; text-decoration: none; }
+  .navlinks { display: flex; gap: 14px; align-items: center; }
+  .navlinks a { color: var(--muted); font-size: 14px; text-decoration: none; }
+  .navlinks a:hover { color: var(--text); }
+  @media (max-width: 560px) { .how { grid-template-columns: 1fr; } .navlinks a.hidemobile { display: none; } }
   @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .hero h1 { font-size: 26px; } }
 </style>
 </head>
@@ -78,7 +98,11 @@
 <div class="wrap">
   <header>
     <div class="logo">🍀 Lucky<span>Arc</span></div>
-    <button id="connect" class="pill">Connect wallet</button>
+    <div class="navlinks">
+      <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener" class="hidemobile">GitHub</a>
+      <a href="https://x.com/LuckyArcXYZ" target="_blank" rel="noopener" class="hidemobile">𝕏</a>
+      <button id="connect" class="pill">Connect wallet</button>
+    </div>
   </header>
 
   <div class="hero">
@@ -89,9 +113,22 @@
       <div class="amt" id="prizePool">—</div>
       <div class="countdown" id="countdown">next draw: —</div>
     </div>
+    <br/><a class="cta" href="#app">Launch app ↓</a>
   </div>
 
-  <div class="grid">
+  <div class="how">
+    <div class="step"><div class="n">1️⃣</div><h4>Deposit USDC</h4><p>Your deposit joins the pool and buys you tickets — odds proportional to your share. Withdraw the full amount anytime.</p></div>
+    <div class="step"><div class="n">2️⃣</div><h4>Prize pool grows</h4><p>Sponsors and (in v2) yield from an ERC-4626 vault fill the daily prize. Your principal is never touched.</p></div>
+    <div class="step"><div class="n">3️⃣</div><h4>Daily draw</h4><p>Every 24h anyone can trigger the permissionless draw. One saver wins the whole prize. Everyone else loses nothing.</p></div>
+  </div>
+
+  <div class="honest">
+    <b>Testnet honesty:</b> randomness is prevrandao+blockhash (mainnet would use VRF), the prize pool is
+    currently sponsor-funded, and winner selection is O(n). All limitations and the v2 plan are documented in the
+    <a href="https://github.com/pr0br00/luckyarc#honest-limitations-testnet" target="_blank" rel="noopener">README</a>.
+  </div>
+
+  <div class="grid" id="app">
     <div class="stat"><div class="v" id="tvl">—</div><div class="k">Total saved (USDC)</div></div>
     <div class="stat"><div class="v" id="players">—</div><div class="k">Savers in the pool</div></div>
     <div class="stat"><div class="v" id="draws">—</div><div class="k">Draws completed</div></div>
@@ -130,8 +167,10 @@
   </div>
 
   <div class="foot">
-    contract: <a id="ctrLink" href="#" target="_blank" rel="noopener"></a><br/>
-    testnet randomness (prevrandao) — mainnet version would use VRF · v2 roadmap: prize from Lunex ERC-4626 yield
+    contract: <a id="ctrLink" href="#" target="_blank" rel="noopener"></a>
+    · <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">GitHub</a>
+    · <a href="https://x.com/LuckyArcXYZ" target="_blank" rel="noopener">𝕏 @LuckyArcXYZ</a><br/>
+    built on <a href="https://arc.network" target="_blank" rel="noopener">Arc</a> testnet · USDC is gas · sub-second finality
   </div>
 </div>
 <div id="toast"></div>
