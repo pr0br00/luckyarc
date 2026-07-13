@@ -10,6 +10,8 @@ be withdrawn at any moment.
 
 ## Live
 
+- **App:** https://pr0br00.github.io/luckyarc/
+
 - **Contract (Arc testnet):** [`0x059071cf49E291441Ea0C1B644941f690a8b6181`](https://testnet.arcscan.app/address/0x059071cf49E291441Ea0C1B644941f690a8b6181)
 - **USDC:** `0x3600000000000000000000000000000000000000`
 - **Draw interval:** 24h, permissionless `draw()` — anyone can trigger it
