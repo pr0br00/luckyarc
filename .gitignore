@@ -2,3 +2,5 @@ node_modules/
 .venv/
 __pycache__/
 .env
+keeper-log.txt
+keeper-launchd.log

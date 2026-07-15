@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.luckyarc.keeper</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/pr0br0/arc-onchain-farmer/.venv/bin/python</string>
+        <string>/Users/pr0br0/luckyarc/scripts/keeper.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/pr0br0/luckyarc</string>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/Users/pr0br0/luckyarc/keeper-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/pr0br0/luckyarc/keeper-launchd.log</string>
+</dict>
+</plist>
