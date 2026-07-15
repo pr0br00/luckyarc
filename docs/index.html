@@ -236,16 +236,37 @@ async function refresh() {
   } catch (e) { console.error(e); }
 }
 
+function renderWinners(list) {
+  if (!list.length) return;
+  $("winners").innerHTML = list.slice(0, 8).map((w) =>
+    `<li><span>#${w.id} <span class="addr">${short(w.winner)}</span></span>` +
+    `<span class="win-amt">+${fmt(w.prize)} USDC</span></li>`
+  ).join("");
+}
+
 async function loadWinners() {
   try {
+    const cached = JSON.parse(localStorage.getItem("luckyarc_winners") || "[]");
+    renderWinners(cached);
+    // RPC caps eth_getLogs at 10k blocks; scan last 30 windows (~30h) in parallel.
     const head = await ro.getBlockNumber();
-    const from = Math.max(0, head - 45000);
-    const evs = await luckyRo.queryFilter(luckyRo.filters.DrawExecuted(), from, head);
-    if (!evs.length) return;
-    $("winners").innerHTML = evs.slice(-8).reverse().map((e) =>
-      `<li><span>#${e.args.drawId} <span class="addr">${short(e.args.winner)}</span></span>` +
-      `<span class="win-amt">+${fmt(e.args.prize)} USDC</span></li>`
-    ).join("");
+    const SPAN = 9900, WINDOWS = 30;
+    const jobs = [];
+    for (let i = 0; i < WINDOWS; i++) {
+      const to = head - i * SPAN;
+      const from = Math.max(0, to - SPAN + 1);
+      if (to <= 0) break;
+      jobs.push(luckyRo.queryFilter(luckyRo.filters.DrawExecuted(), from, to).catch(() => []));
+    }
+    const evs = (await Promise.all(jobs)).flat();
+    const found = evs.map((e) => ({
+      id: Number(e.args.drawId), winner: e.args.winner, prize: e.args.prize.toString(),
+    }));
+    const byId = {};
+    [...cached, ...found].forEach((w) => (byId[w.id] = w));
+    const merged = Object.values(byId).sort((a, b) => b.id - a.id);
+    localStorage.setItem("luckyarc_winners", JSON.stringify(merged.slice(0, 50)));
+    renderWinners(merged);
   } catch (e) { console.error(e); }
 }
 
