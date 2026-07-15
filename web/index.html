@@ -118,13 +118,13 @@
 
   <div class="how">
     <div class="step"><div class="n">1️⃣</div><h4>Deposit USDC</h4><p>Your deposit joins the pool and buys you tickets — odds proportional to your share. Withdraw the full amount anytime.</p></div>
-    <div class="step"><div class="n">2️⃣</div><h4>Prize pool grows</h4><p>Sponsors and (in v2) yield from an ERC-4626 vault fill the daily prize. Your principal is never touched.</p></div>
+    <div class="step"><div class="n">2️⃣</div><h4>Prize pool grows</h4><p>Deposits earn yield in the Lunex ERC-4626 vault — everything above principal (plus sponsor top-ups) becomes the prize. Your principal is never touched.</p></div>
     <div class="step"><div class="n">3️⃣</div><h4>Daily draw</h4><p>Every 24h anyone can trigger the permissionless draw. One saver wins the whole prize. Everyone else loses nothing.</p></div>
   </div>
 
   <div class="honest">
-    <b>Testnet honesty:</b> randomness is prevrandao+blockhash (mainnet would use VRF), the prize pool is
-    currently sponsor-funded, and winner selection is O(n). All limitations and the v2 plan are documented in the
+    <b>Testnet honesty:</b> randomness is prevrandao+blockhash (mainnet would use VRF), winner selection is O(n),
+    and ERC-4626 rounding can cost a wei or two. All limitations are documented in the
     <a href="https://github.com/pr0br00/luckyarc#honest-limitations-testnet" target="_blank" rel="noopener">README</a>.
   </div>
 
@@ -176,7 +176,7 @@
 <div id="toast"></div>
 
 <script>
-const CONTRACT = "0x059071cf49E291441Ea0C1B644941f690a8b6181";
+const CONTRACT = "0xc90D9550aD006702e0a28729FbE88C41bAd2c225"; // V2 (vault yield)
 const USDC = "0x3600000000000000000000000000000000000000";
 const CHAIN_ID = 5042002n;
 const CHAIN_HEX = "0x4CEF52";
@@ -246,7 +246,7 @@ function renderWinners(list) {
 
 async function loadWinners() {
   try {
-    const cached = JSON.parse(localStorage.getItem("luckyarc_winners") || "[]");
+    const cached = JSON.parse(localStorage.getItem("luckyarc_winners_v2") || "[]");
     renderWinners(cached);
     // RPC caps eth_getLogs at 10k blocks; scan last 30 windows (~30h) in parallel.
     const head = await ro.getBlockNumber();
@@ -265,7 +265,7 @@ async function loadWinners() {
     const byId = {};
     [...cached, ...found].forEach((w) => (byId[w.id] = w));
     const merged = Object.values(byId).sort((a, b) => b.id - a.id);
-    localStorage.setItem("luckyarc_winners", JSON.stringify(merged.slice(0, 50)));
+    localStorage.setItem("luckyarc_winners_v2", JSON.stringify(merged.slice(0, 50)));
     renderWinners(merged);
   } catch (e) { console.error(e); }
 }

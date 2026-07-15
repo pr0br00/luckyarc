@@ -10,9 +10,9 @@ be withdrawn at any moment.
 
 ## Live
 
-- **App:** https://pr0br00.github.io/luckyarc/
-
-- **Contract (Arc testnet):** [`0x059071cf49E291441Ea0C1B644941f690a8b6181`](https://testnet.arcscan.app/address/0x059071cf49E291441Ea0C1B644941f690a8b6181)
+- **App:** https://luckyarc.xyz
+- **Contract V2 (Arc testnet):** [`0xc90D9550aD006702e0a28729FbE88C41bAd2c225`](https://testnet.arcscan.app/address/0xc90D9550aD006702e0a28729FbE88C41bAd2c225) — deposits earn yield in the [Lunex ERC-4626 vault](https://testnet.arcscan.app/address/0x66CF9CA9D75FD62438C6E254bA35E61775EF9496); the prize is everything above principal
+- **Contract V1 (legacy):** [`0x059071cf49E291441Ea0C1B644941f690a8b6181`](https://testnet.arcscan.app/address/0x059071cf49E291441Ea0C1B644941f690a8b6181) — sponsor-funded prize, kept for history
 - **USDC:** `0x3600000000000000000000000000000000000000`
 - **Draw interval:** 24h, permissionless `draw()` — anyone can trigger it
 
@@ -37,12 +37,13 @@ saving instead of spending — no loss, all upside.
 
 - **Randomness** is `prevrandao + blockhash + timestamp` — fine for testnet,
   not manipulation-proof. A mainnet version would use a VRF.
-- **Prize funding** is manual (`fundPrize`). The v2 design routes pooled
-  deposits into an ERC-4626 vault (e.g. Lunex vault
-  `0x66CF9CA9D75FD62438C6E254bA35E61775EF9496`) so the prize is the *yield* —
-  the full PoolTogether loop.
+- **ERC-4626 rounding** can cost ~1 wei per deposit; withdrawals are
+  dust-guarded via `maxWithdraw`, draws require prize ≥ 0.01 USDC.
+- If the vault's share price ever dropped below deposit-time levels, the last
+  withdrawer could face a shortfall — acceptable for a stableswap vault on
+  testnet, would need a buffer on mainnet.
 - The winner-selection loop is O(players) — acceptable at testnet scale;
-  v2 would move to a sortition tree (TWAB-style).
+  next step is a sortition tree (TWAB-style).
 
 ## Repo layout
 
@@ -66,7 +67,7 @@ python -m pytest tests/ -v
 
 ## Roadmap
 
-- [ ] v2: deposits auto-route into an ERC-4626 vault, prize = harvested yield
+- [x] v2: deposits auto-route into an ERC-4626 vault, prize = harvested yield
 - [ ] VRF randomness
 - [ ] TWAB balances (deposit age matters, resistant to draw-sniping)
 - [ ] Weekly "mega draw" alongside daily draws
