@@ -93,8 +93,30 @@ def run_contract(w3, acct, usdc, addr, top_up):
         log("no draw this run")
 
 
+# Primary is heavily rate-limited (429s on bursts) — prefer provider mirrors.
+RPCS = [
+    "https://rpc.drpc.testnet.arc.network",
+    "https://rpc.blockdaemon.testnet.arc.network",
+    "https://rpc.quicknode.testnet.arc.network",
+    config.RPC_URL,
+]
+
+
+def connect():
+    """First endpoint that answers eth_blockNumber wins (primary is rate-limited lately)."""
+    for url in RPCS:
+        try:
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 15}))
+            w3.eth.block_number
+            log(f"rpc: {url}")
+            return w3
+        except Exception as e:
+            log(f"rpc {url} unusable: {type(e).__name__}")
+    raise SystemExit("no usable RPC")
+
+
 def main():
-    w3 = Web3(Web3.HTTPProvider(config.RPC_URL))
+    w3 = connect()
     acct = w3.eth.account.from_key(config.PRIVATE_KEY)
     usdc = w3.eth.contract(address=Web3.to_checksum_address(USDC), abi=ERC20_ABI)
     for addr, top_up in CONTRACTS:

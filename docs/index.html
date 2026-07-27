@@ -205,7 +205,8 @@ const fmt = (v) => (Number(v) / 1e6).toLocaleString("en-US", { maximumFractionDi
 const parse = (s) => BigInt(Math.round(parseFloat(s) * 1e6));
 const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 
-const ro = new ethers.JsonRpcProvider(RPC);
+const RPC_FALLBACKS = [RPC, "https://rpc.drpc.testnet.arc.network", "https://rpc.blockdaemon.testnet.arc.network"];
+const ro = new ethers.FallbackProvider(RPC_FALLBACKS.map((u) => new ethers.JsonRpcProvider(u)), 1);
 const luckyRo = new ethers.Contract(CONTRACT, LUCKY_ABI, ro);
 let signer = null, lucky = null, usdc = null, me = null, nextDraw = 0;
 
