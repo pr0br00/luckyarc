@@ -123,9 +123,10 @@
   </div>
 
   <div class="honest">
-    <b>Testnet honesty:</b> randomness is prevrandao+blockhash (mainnet would use VRF), winner selection is O(n),
-    and ERC-4626 rounding can cost a wei or two. All limitations are documented in the
-    <a href="https://github.com/pr0br00/luckyarc#honest-limitations-testnet" target="_blank" rel="noopener">README</a>.
+    <b>Honest limitations:</b> <code>PREVRANDAO</code> returns 0 on Arc, so we use a commit-reveal draw seeded by a
+    pinned future block — better than same-block entropy, still not a VRF (the randomness source is swappable
+    for one when Arc gets it). Winner selection is O(n) and ERC-4626 rounding can cost a wei or two. Details in the
+    <a href="https://github.com/pr0br00/luckyarc#honest-limitations" target="_blank" rel="noopener">README</a>.
   </div>
 
   <div class="grid" id="app">
@@ -158,7 +159,7 @@
       <button id="fundBtn" class="warn" disabled>Fund prize</button>
       <button id="drawBtn" class="ghost" disabled>Draw 🎲</button>
     </div>
-    <div class="mybal">The draw is permissionless — anyone can trigger it once the timer hits zero. Winner is picked weighted by deposit size.</div>
+    <div class="mybal">The draw is permissionless and runs in two steps: <b>request</b> pins a future block, <b>execute</b> settles it from that block's hash. Nobody — not even the caller — can know the winner in advance. Odds are weighted by deposit size.</div>
   </div>
 
   <div class="card">
@@ -176,7 +177,7 @@
 <div id="toast"></div>
 
 <script>
-const CONTRACT = "0xc90D9550aD006702e0a28729FbE88C41bAd2c225"; // V2 (vault yield)
+const CONTRACT = "0x875B1f472002a14A6FC8e8312A610CA5b20De488"; // V3 (commit-reveal draw)
 const USDC = "0x3600000000000000000000000000000000000000";
 const CHAIN_ID = 5042002n;
 const CHAIN_HEX = "0x4CEF52";
@@ -185,7 +186,10 @@ const DEC = 6n;
 
 const LUCKY_ABI = [
   "function deposit(uint256)", "function withdraw(uint256)",
-  "function fundPrize(uint256)", "function draw()",
+  "function fundPrize(uint256)",
+  "function requestDraw()", "function executeDraw()",
+  "function drawReady() view returns (bool)",
+  "function pinnedBlock() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
   "function totalDeposits() view returns (uint256)",
   "function prizePool() view returns (uint256)",
@@ -344,7 +348,21 @@ $("fundBtn").onclick = async () => {
   await approveIfNeeded(amt);
   send("Fund prize", () => lucky.fundPrize(amt));
 };
-$("drawBtn").onclick = () => send("Draw", () => lucky.draw());
+$("drawBtn").onclick = async () => {
+  try {
+    if (await luckyRo.drawReady()) {
+      return send("Execute draw", () => lucky.executeDraw());
+    }
+    const pinned = await luckyRo.pinnedBlock();
+    if (pinned > 0n) {
+      const head = BigInt(await ro.getBlockNumber());
+      return toast(`Draw already requested — reveal in ${pinned - head + 1n} blocks. Hit Draw again then.`);
+    }
+    send("Request draw", () => lucky.requestDraw());
+  } catch (e) {
+    toast((e.shortMessage || e.message || "failed").slice(0, 120));
+  }
+};
 
 refresh(); loadWinners();
 setInterval(refresh, 15000);

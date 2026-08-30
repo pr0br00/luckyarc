@@ -14,10 +14,10 @@ FARMER = Path.home() / "arc-onchain-farmer"
 sys.path.insert(0, str(FARMER))
 import config  # noqa: E402
 
-# (address, top_up_enabled). V1 is legacy: draw-only until drained.
+# (address, abi_name, top_up_enabled). Older versions stay draw-only.
 CONTRACTS = [
-    ("0x059071cf49E291441Ea0C1B644941f690a8b6181", False),  # V1 legacy
-    ("0xc90D9550aD006702e0a28729FbE88C41bAd2c225", True),   # V2 vault edition
+    ("0xc90D9550aD006702e0a28729FbE88C41bAd2c225", "LuckyArcV2", False),  # legacy
+    ("0x875B1f472002a14A6FC8e8312A610CA5b20De488", "LuckyArcV3", True),   # primary
 ]
 USDC = "0x3600000000000000000000000000000000000000"
 U = 10**6
@@ -64,17 +64,18 @@ def send(w3, acct, tx_fn, label):
 MIN_PRIZE = 10_000  # V2 rejects dust draws below 0.01 USDC
 
 
-def run_contract(w3, acct, usdc, addr, top_up):
-    abi_name = "LuckyArcV2.json" if top_up else "LuckyArc.json"
-    abi = json.loads((Path(__file__).resolve().parent.parent / "build" / abi_name).read_text())["abi"]
+def run_contract(w3, acct, usdc, addr, abi_name, top_up):
+    abi = json.loads((Path(__file__).resolve().parent.parent / "build" / f"{abi_name}.json").read_text())["abi"]
     lucky = w3.eth.contract(address=Web3.to_checksum_address(addr), abi=abi)
+    two_phase = any(f.get("name") == "requestDraw" for f in abi)
 
     prize = lucky.functions.prizePool().call()
     players = lucky.functions.playersCount().call()
     next_draw = lucky.functions.nextDrawAt().call()
     now = w3.eth.get_block("latest")["timestamp"]
     wallet = usdc.functions.balanceOf(acct.address).call()
-    log(f"{addr[:8]}: prize={prize/U} players={players} wallet={wallet/U} draw_in={max(0, next_draw-now)}s")
+    log(f"{addr[:8]} ({abi_name}): prize={prize/U} players={players} "
+        f"wallet={wallet/U} draw_in={max(0, next_draw-now)}s")
 
     if top_up and prize < MIN_PRIZE and players > 0:
         if wallet >= MIN_WALLET_BALANCE:
@@ -85,10 +86,44 @@ def run_contract(w3, acct, usdc, addr, top_up):
         else:
             log("skip topup: wallet below reserve")
 
-    if now >= next_draw and prize >= MIN_PRIZE and players > 0:
-        r = send(w3, acct, lucky.functions.draw(), "draw")
+    if players == 0 or prize < MIN_PRIZE:
+        log("nothing to draw")
+        return
+
+    if not two_phase:
+        if now >= next_draw:
+            r = send(w3, acct, lucky.functions.draw(), "draw")
+            ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
+            log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+        else:
+            log("no draw this run")
+        return
+
+    # Two-phase: settle a ripe request, otherwise open one.
+    if lucky.functions.drawReady().call():
+        r = send(w3, acct, lucky.functions.executeDraw(), "executeDraw")
         ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
         log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+        return
+
+    pinned = lucky.functions.pinnedBlock().call()
+    head = w3.eth.block_number
+    if pinned != 0 and head <= pinned:
+        log(f"request pending, reveal at block {pinned} (in {pinned - head})")
+    elif now >= next_draw:
+        send(w3, acct, lucky.functions.requestDraw(), "requestDraw")
+        target = lucky.functions.pinnedBlock().call()
+        # Arc blocks are ~1s, so the reveal window opens almost immediately.
+        for _ in range(60):
+            if w3.eth.block_number > target:
+                break
+            time.sleep(2)
+        if lucky.functions.drawReady().call():
+            r = send(w3, acct, lucky.functions.executeDraw(), "executeDraw")
+            ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
+            log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+        else:
+            log("requested; will execute on next run")
     else:
         log("no draw this run")
 
@@ -119,9 +154,9 @@ def main():
     w3 = connect()
     acct = w3.eth.account.from_key(config.PRIVATE_KEY)
     usdc = w3.eth.contract(address=Web3.to_checksum_address(USDC), abi=ERC20_ABI)
-    for addr, top_up in CONTRACTS:
+    for addr, abi_name, top_up in CONTRACTS:
         try:
-            run_contract(w3, acct, usdc, addr, top_up)
+            run_contract(w3, acct, usdc, addr, abi_name, top_up)
         except SystemExit:
             raise
         except Exception as e:  # keep going if one contract hiccups

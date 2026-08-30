@@ -11,8 +11,10 @@ be withdrawn at any moment.
 ## Live
 
 - **App:** https://luckyarc.xyz
-- **Contract V2 (Arc testnet):** [`0xc90D9550aD006702e0a28729FbE88C41bAd2c225`](https://testnet.arcscan.app/address/0xc90D9550aD006702e0a28729FbE88C41bAd2c225) — deposits earn yield in the [Lunex ERC-4626 vault](https://testnet.arcscan.app/address/0x66CF9CA9D75FD62438C6E254bA35E61775EF9496); the prize is everything above principal
-- **Contract V1 (legacy):** [`0x059071cf49E291441Ea0C1B644941f690a8b6181`](https://testnet.arcscan.app/address/0x059071cf49E291441Ea0C1B644941f690a8b6181) — sponsor-funded prize, kept for history
+- **Contract V3 (current):** [`0x875B1f472002a14A6FC8e8312A610CA5b20De488`](https://testnet.arcscan.app/address/0x875B1f472002a14A6FC8e8312A610CA5b20De488) — vault yield as prize + commit-reveal draw + deposit cap
+- **Randomness source:** [`0xC85D77b3057876965FB9fa79A69d81Dbe1aeb555`](https://testnet.arcscan.app/address/0xC85D77b3057876965FB9fa79A69d81Dbe1aeb555) (`BlockhashRandomness`, swappable via `IRandomnessSource`)
+- **Vault:** [Lunex ERC-4626](https://testnet.arcscan.app/address/0x66CF9CA9D75FD62438C6E254bA35E61775EF9496)
+- V2 `0xc90D…c225` and V1 `0x0590…6181` remain onchain as history
 - **USDC:** `0x3600000000000000000000000000000000000000`
 - **Draw interval:** 24h, permissionless `draw()` — anyone can trigger it
 
@@ -33,10 +35,40 @@ of the few DeFi primitives with a proven real-world track record
 (premium bonds in the UK have existed since 1956 and hold ~£120B). It rewards
 saving instead of spending — no loss, all upside.
 
-## Honest limitations (testnet)
+## The randomness problem on Arc (and how V3 fixes it)
 
-- **Randomness** is `prevrandao + blockhash + timestamp` — fine for testnet,
-  not manipulation-proof. A mainnet version would use a VRF.
+Arc's [EVM differences](https://docs.arc.io/arc/references/evm-differences) state
+that **`PREVRANDAO` always returns 0**. We verified it on chain — `mixHash` is
+zero in every block:
+
+```
+block 59597373: mixHash=0x0000…0000
+block 59597372: mixHash=0x0000…0000
+```
+
+That broke V1/V2's randomness in a way worth spelling out. With `prevrandao`
+dead, the only same-transaction entropy left is `blockhash(block.number - 1)` —
+a value the caller can read *before* sending. Since `draw()` was permissionless
+and single-transaction, any participant could simulate the call with `eth_call`
+and broadcast only when it picked them, re-rolling every block for free. With one
+player that is harmless; with a real pool it is a live exploit.
+
+**V3 splits the draw in two:**
+
+1. `requestDraw()` pins a block a few blocks ahead. Its hash does not exist yet,
+   so there is nothing to simulate.
+2. `executeDraw()` seeds the winner from that block's hash. It is now immutable,
+   so waiting or retrying changes nothing.
+
+Requests expire after 250 blocks (the `blockhash` window) and can be re-issued.
+The source sits behind `IRandomnessSource`, so a real VRF drops in without
+touching pool accounting once one ships on Arc.
+
+## Honest limitations
+
+- **Commit-reveal is not a VRF.** A block proposer who also participates could
+  in principle grind the pinned block. Acceptable on testnet with a known
+  validator set; a VRF is the mainnet answer.
 - **ERC-4626 rounding** can cost ~1 wei per deposit; withdrawals are
   dust-guarded via `maxWithdraw`, draws require prize ≥ 0.01 USDC.
 - If the vault's share price ever dropped below deposit-time levels, the last
