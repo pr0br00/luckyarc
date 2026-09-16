@@ -11,6 +11,10 @@ be withdrawn at any moment.
 ## Live
 
 - **App:** https://luckyarc.xyz
+- **Arc mainnet (since launch day, 2026-09-16):** [`0xF611b39e8aDB90357e4bD7035F11194D207c1844`](https://explorer.arc.io/address/0xF611b39e8aDB90357e4bD7035F11194D207c1844) — LuckyArcV3 on a 1:1 [PassthroughVault](https://explorer.arc.io/address/0xbe35270C0C70F9599440b89927BF2162e440f158) (prize is sponsor-funded until an audited yield vault exists on mainnet), randomness [`0x86Bf…F35C`](https://explorer.arc.io/address/0x86Bfc11b4e02d26944e3db984eFF5c09fd12F35C), deposit cap 5,000 USDC
+- **LUCKY token (Arc mainnet):** [`0x41450A56F8DAcc475585EF746e3131067d332d13`](https://explorer.arc.io/token/0x41450A56F8DAcc475585EF746e3131067d332d13) — launched on [Archemist](https://archemist.fun/token/0x41450A56F8DAcc475585EF746e3131067d332d13), 1B supply. Community token; does not touch the prize pool or principal. Utility (draw boost, saver rewards) is roadmap.
+
+### Testnet
 - **Contract V3 (current):** [`0x875B1f472002a14A6FC8e8312A610CA5b20De488`](https://testnet.arcscan.app/address/0x875B1f472002a14A6FC8e8312A610CA5b20De488) — vault yield as prize + commit-reveal draw + deposit cap
 - **Randomness source:** [`0xC85D77b3057876965FB9fa79A69d81Dbe1aeb555`](https://testnet.arcscan.app/address/0xC85D77b3057876965FB9fa79A69d81Dbe1aeb555) (`BlockhashRandomness`, swappable via `IRandomnessSource`)
 - **Vault:** [Lunex ERC-4626](https://testnet.arcscan.app/address/0x66CF9CA9D75FD62438C6E254bA35E61775EF9496)

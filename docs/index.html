@@ -276,7 +276,12 @@ const NETWORKS = {
 };
 const USDC = "0x3600000000000000000000000000000000000000";
 // LUCKY token — filled in once launched. Empty address = "launching" state.
-const TOKEN = { address: "", launchpad: "", buyUrl: "", explorer: "https://explorer.arc.io" };
+const TOKEN = {
+  address: "0x41450A56F8DAcc475585EF746e3131067d332d13", // LuckyArc (LUCKY), Arc mainnet, 1B supply
+  launchpad: "Archemist",
+  buyUrl: "https://archemist.fun/token/0x41450A56F8DAcc475585EF746e3131067d332d13",
+  explorer: "https://explorer.arc.io",
+};
 const params = new URLSearchParams(location.search);
 const NET_KEY = params.get("net") === "mainnet" && NETWORKS.mainnet.contract ? "mainnet"
   : (NETWORKS.mainnet.contract ? "mainnet" : "testnet");
