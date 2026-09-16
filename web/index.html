@@ -300,7 +300,10 @@ const fmt = (v) => (Number(v) / 1e6).toLocaleString("en-US", { maximumFractionDi
 const parse = (s) => BigInt(Math.round(parseFloat(s) * 1e6));
 const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 
-const ro = new ethers.FallbackProvider(NET.rpcs.map((u) => new ethers.JsonRpcProvider(u)), 1);
+// Pin the network: ethers v6 otherwise assumes chainId 1 and throws "network changed".
+const netObj = ethers.Network.from({ name: NET.name, chainId: Number(NET.chainId) });
+const ro = new ethers.FallbackProvider(
+  NET.rpcs.map((u) => new ethers.JsonRpcProvider(u, netObj, { staticNetwork: netObj })), netObj, { quorum: 1 });
 const luckyRo = new ethers.Contract(CONTRACT, LUCKY_ABI, ro);
 let signer = null, lucky = null, usdc = null, me = null, nextDraw = 0, myDeposit = 0n;
 
