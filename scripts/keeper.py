@@ -44,6 +44,31 @@ def log(msg):
         f.write(line + "\n")
 
 
+REPO = Path(__file__).resolve().parent.parent
+WINNERS = REPO / "docs" / "winners.json"
+
+
+def record_winner(contract, ev, txhash, net="testnet"):
+    """Append a draw result to docs/winners.json and push — the site's history index."""
+    import subprocess
+    rows = json.loads(WINNERS.read_text()) if WINNERS.exists() else []
+    rows.append({
+        "net": net, "contract": contract, "id": int(ev["drawId"]),
+        "winner": ev["winner"], "prize": str(ev["prize"]),
+        "tx": txhash, "ts": int(time.time()),
+    })
+    WINNERS.write_text(json.dumps(rows, indent=1))
+    try:
+        subprocess.run(["git", "add", "docs/winners.json"], cwd=REPO, check=True, capture_output=True)
+        subprocess.run(["git", "-c", "user.name=luckyarc-keeper", "-c", "user.email=keeper@luckyarc.xyz",
+                        "commit", "-qm", f"winners: {net} draw #{int(ev['drawId'])}"],
+                       cwd=REPO, check=True, capture_output=True)
+        subprocess.run(["git", "push", "-q"], cwd=REPO, check=True, capture_output=True, timeout=60)
+        log("winners.json pushed")
+    except Exception as e:
+        log(f"winners.json push failed (kept locally): {e}")
+
+
 def send(w3, acct, tx_fn, label):
     tx = tx_fn.build_transaction({
         "from": acct.address,
@@ -95,6 +120,7 @@ def run_contract(w3, acct, usdc, addr, abi_name, top_up):
             r = send(w3, acct, lucky.functions.draw(), "draw")
             ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
             log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+        record_winner(addr, ev, r.transactionHash.hex())
         else:
             log("no draw this run")
         return
@@ -104,6 +130,7 @@ def run_contract(w3, acct, usdc, addr, abi_name, top_up):
         r = send(w3, acct, lucky.functions.executeDraw(), "executeDraw")
         ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
         log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+        record_winner(addr, ev, r.transactionHash.hex())
         return
 
     pinned = lucky.functions.pinnedBlock().call()
@@ -122,6 +149,7 @@ def run_contract(w3, acct, usdc, addr, abi_name, top_up):
             r = send(w3, acct, lucky.functions.executeDraw(), "executeDraw")
             ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
             log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+        record_winner(addr, ev, r.transactionHash.hex())
         else:
             log("requested; will execute on next run")
     else:

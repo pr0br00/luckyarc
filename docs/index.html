@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>LuckyArc — no-loss prize savings on Arc</title>
-<meta name="description" content="Deposit USDC, withdraw anytime, win the daily prize. No-loss lottery on Arc testnet." />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🍀</text></svg>" />
+<meta name="description" content="Deposit USDC, withdraw anytime, win the daily prize. No-loss prize savings on Arc." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg transform='translate(50,52)'%3E%3Cpath d='M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z' fill='%234ade80' transform='translate(0,-8)'/%3E%3Cpath d='M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z' fill='%2322c55e' transform='rotate(90) translate(0,-8)'/%3E%3Cpath d='M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z' fill='%234ade80' transform='rotate(180) translate(0,-8)'/%3E%3Cpath d='M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z' fill='%2322c55e' transform='rotate(270) translate(0,-8)'/%3E%3C/g%3E%3C/svg%3E" />
 <meta property="og:title" content="LuckyArc — no-loss prize savings on Arc" />
 <meta property="og:description" content="Save USDC. Win the prize. Never lose your deposit." />
 <meta property="og:image" content="https://luckyarc.xyz/og.png" />
@@ -16,98 +16,148 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
 <style>
   :root {
-    --bg: #0b0e14; --card: #131826; --card2: #1a2133; --text: #e8ecf4;
-    --muted: #8b94a8; --accent: #4ade80; --accent2: #fbbf24; --danger: #f87171;
+    --bg: #0b0e14; --card: #131826; --card2: #1a2133; --line: #222b42; --line2: #2a3450;
+    --text: #e8ecf4; --muted: #8b94a8; --accent: #4ade80; --accent2: #fbbf24; --danger: #f87171;
     --radius: 14px;
   }
   * { box-sizing: border-box; margin: 0; }
   body {
     background: radial-gradient(1200px 600px at 50% -100px, #1a2540, var(--bg));
-    color: var(--text); font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
+    color: var(--text); font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100vh;
   }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
-  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
-  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  a { color: var(--accent); text-decoration: none; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px; gap: 10px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo svg { width: 28px; height: 28px; }
   .logo span { color: var(--accent2); }
+  .navlinks { display: flex; gap: 10px; align-items: center; }
+  .navlinks a { color: var(--muted); font-size: 14px; }
+  .navlinks a:hover { color: var(--text); }
   .pill {
-    background: var(--card2); border: 1px solid #2a3450; color: var(--muted);
-    padding: 8px 14px; border-radius: 99px; font-size: 13px; cursor: pointer;
+    background: var(--card2); border: 1px solid var(--line2); color: var(--muted);
+    padding: 8px 14px; border-radius: 99px; font-size: 13px; cursor: pointer; white-space: nowrap;
   }
   .pill.connected { color: var(--accent); border-color: #2c4a38; }
-  .hero { text-align: center; margin-bottom: 30px; }
-  .hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
-  .hero p { color: var(--muted); margin-top: 6px; }
+  .net { font-size: 12px; padding: 5px 10px; cursor: default; }
+  .net.testnet { color: var(--accent2); border-color: #4a3d14; }
+  .net.mainnet { color: var(--accent); border-color: #2c4a38; }
+
+  .hero { text-align: center; margin-bottom: 28px; }
+  .hero h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1.15; }
+  .hero p { color: var(--muted); margin-top: 8px; }
   .prize {
     margin: 22px auto 0; display: inline-block; background: linear-gradient(135deg, #1c2440, #142031);
-    border: 1px solid #2a3450; border-radius: var(--radius); padding: 18px 34px;
+    border: 1px solid var(--line2); border-radius: var(--radius); padding: 18px 34px;
   }
   .prize .amt { font-size: 40px; font-weight: 800; color: var(--accent2); }
   .prize .lbl { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
-  .countdown { margin-top: 8px; font-variant-numeric: tabular-nums; color: var(--text); }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-  .stat { background: var(--card); border: 1px solid #222b42; border-radius: var(--radius); padding: 14px; text-align: center; }
+  .countdown { margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .cta { display: inline-block; margin-top: 18px; background: var(--accent); color: #06220f; font-weight: 700; padding: 12px 26px; border-radius: 10px; }
+
+  .proof { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 0 26px; }
+  .proof span { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 5px 11px; }
+  .proof a { color: var(--muted); }
+  .proof a:hover { color: var(--text); }
+
+  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .step .n { font-size: 22px; margin-bottom: 6px; color: var(--accent); font-weight: 800; }
+  .step h4 { font-size: 15px; margin-bottom: 4px; }
+  .step p { font-size: 13px; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 8px; text-align: center; }
   .stat .v { font-size: 20px; font-weight: 700; }
   .stat .k { font-size: 12px; color: var(--muted); }
-  .card { background: var(--card); border: 1px solid #222b42; border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
-  .card h3 { font-size: 15px; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .card h3 { font-size: 13px; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
   .row { display: flex; gap: 10px; }
   input {
-    flex: 1; background: var(--bg); color: var(--text); border: 1px solid #2a3450;
+    flex: 1; min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--line2);
     border-radius: 10px; padding: 12px; font-size: 16px; outline: none;
   }
   input:focus { border-color: var(--accent); }
   button {
     background: var(--accent); color: #06220f; border: 0; border-radius: 10px;
-    padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer;
+    padding: 12px 20px; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap;
   }
   button.warn { background: var(--accent2); color: #241a02; }
-  button.ghost { background: var(--card2); color: var(--text); border: 1px solid #2a3450; }
+  button.ghost { background: var(--card2); color: var(--text); border: 1px solid var(--line2); }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .mybal { margin-top: 10px; font-size: 14px; color: var(--muted); }
-  .winners li {
-    list-style: none; padding: 10px 0; border-bottom: 1px solid #202942;
-    display: flex; justify-content: space-between; font-size: 14px;
-  }
+  .hint { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .hint b { color: var(--text); font-weight: 600; }
+
+  .winners li { list-style: none; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 14px; gap: 10px; }
   .winners li:last-child { border: 0; }
   .addr { font-family: ui-monospace, monospace; color: var(--muted); }
-  .win-amt { color: var(--accent2); font-weight: 700; }
+  .win-amt { color: var(--accent2); font-weight: 700; white-space: nowrap; }
+
+  .honest { border-style: dashed; border-color: #33406a; font-size: 13px; color: var(--muted); }
+  .honest b { color: var(--text); }
+  code { font-family: ui-monospace, monospace; font-size: 0.92em; background: var(--card2); padding: 1px 5px; border-radius: 5px; }
+
+  .token { border-color: #3a3520; background: linear-gradient(135deg, #171a26, #141a20); }
+  .token .tag { display: inline-block; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent2); border: 1px solid #4a3d14; border-radius: 99px; padding: 3px 9px; margin-bottom: 10px; }
+  .token h2 { font-size: 22px; margin-bottom: 6px; }
+  .token p { font-size: 14px; color: var(--muted); }
+  .token ul { margin: 10px 0 0 18px; font-size: 14px; color: var(--muted); }
+  .token li { margin-bottom: 4px; }
+  .token .warnbox { margin-top: 12px; font-size: 13px; color: var(--danger); border: 1px solid #4a2020; border-radius: 10px; padding: 10px 12px; }
+
+  details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+  details:last-child { border: 0; }
+  summary { cursor: pointer; font-weight: 600; font-size: 15px; list-style: none; display: flex; justify-content: space-between; }
+  summary::after { content: "+"; color: var(--muted); }
+  details[open] summary::after { content: "–"; }
+  details p { margin-top: 8px; font-size: 14px; color: var(--muted); }
+
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: var(--card2); border: 1px solid #2a3450; padding: 12px 20px;
-    border-radius: 10px; font-size: 14px; display: none; max-width: 90vw;
+    background: var(--card2); border: 1px solid var(--line2); padding: 12px 20px;
+    border-radius: 10px; font-size: 14px; display: none; max-width: 90vw; z-index: 9;
   }
-  .foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 30px; }
-  .foot a { color: var(--accent); text-decoration: none; }
-  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
-  .how .step { background: var(--card); border: 1px solid #222b42; border-radius: var(--radius); padding: 18px; }
-  .how .n { font-size: 24px; margin-bottom: 6px; }
-  .how h4 { font-size: 15px; margin-bottom: 4px; }
-  .how p { font-size: 13px; color: var(--muted); }
-  .honest { background: var(--card); border: 1px dashed #33406a; border-radius: var(--radius); padding: 16px 20px; margin: 4px 0 26px; font-size: 13px; color: var(--muted); }
-  .honest b { color: var(--text); }
-  .cta { display: inline-block; margin-top: 18px; background: var(--accent); color: #06220f; font-weight: 700; padding: 12px 26px; border-radius: 10px; text-decoration: none; }
-  .navlinks { display: flex; gap: 14px; align-items: center; }
-  .navlinks a { color: var(--muted); font-size: 14px; text-decoration: none; }
-  .navlinks a:hover { color: var(--text); }
-  @media (max-width: 560px) { .how { grid-template-columns: 1fr; } .navlinks a.hidemobile { display: none; } }
-  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .hero h1 { font-size: 26px; } }
+  #toast a { color: var(--accent); margin-left: 8px; }
+  .foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 30px; line-height: 1.8; }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 26px; }
+    .how { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .row { flex-wrap: wrap; }
+    .row input { flex: 1 1 100%; }
+    .row button { flex: 1 1 auto; }
+    .navlinks a.hidemobile { display: none; }
+    .prize { padding: 16px 22px; }
+    .prize .amt { font-size: 34px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">🍀 Lucky<span>Arc</span></div>
+    <div class="logo">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g transform="translate(50,52)">
+        <path d="M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z" fill="#4ade80" transform="translate(0,-8)"/>
+        <path d="M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z" fill="#22c55e" transform="rotate(90) translate(0,-8)"/>
+        <path d="M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z" fill="#4ade80" transform="rotate(180) translate(0,-8)"/>
+        <path d="M0 4 C-19 -13 -7 -28 0 -16 C7 -28 19 -13 0 4Z" fill="#22c55e" transform="rotate(270) translate(0,-8)"/>
+      </g></svg>
+      Lucky<span>Arc</span>
+    </div>
     <div class="navlinks">
+      <span class="pill net" id="netPill">…</span>
       <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener" class="hidemobile">GitHub</a>
-      <a href="https://x.com/LuckyArcXYZ" target="_blank" rel="noopener" class="hidemobile">𝕏</a>
+      <a href="https://x.com/Luckyarcxyz" target="_blank" rel="noopener" class="hidemobile">𝕏</a>
       <button id="connect" class="pill">Connect wallet</button>
     </div>
   </header>
 
   <div class="hero">
     <h1>Save USDC. Win the prize.<br/>Never lose your deposit.</h1>
-    <p>No-loss prize savings on Arc testnet — withdraw your full deposit anytime.</p>
+    <p>No-loss prize savings on Arc — withdraw your full deposit anytime.</p>
     <div class="prize">
       <div class="lbl">Current prize pool</div>
       <div class="amt" id="prizePool">—</div>
@@ -116,50 +166,52 @@
     <br/><a class="cta" href="#app">Launch app ↓</a>
   </div>
 
-  <div class="how">
-    <div class="step"><div class="n">1️⃣</div><h4>Deposit USDC</h4><p>Your deposit joins the pool and buys you tickets — odds proportional to your share. Withdraw the full amount anytime.</p></div>
-    <div class="step"><div class="n">2️⃣</div><h4>Prize pool grows</h4><p>Deposits earn yield in the Lunex ERC-4626 vault — everything above principal (plus sponsor top-ups) becomes the prize. Your principal is never touched.</p></div>
-    <div class="step"><div class="n">3️⃣</div><h4>Daily draw</h4><p>Every 24h anyone can trigger the permissionless draw. One saver wins the whole prize. Everyone else loses nothing.</p></div>
+  <div class="proof">
+    <span>Built on <a href="https://arc.io" target="_blank" rel="noopener">Arc</a> · USDC is gas</span>
+    <span><a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">Open source</a></span>
+    <span>Contract <a id="ctrLink" href="#" target="_blank" rel="noopener">…</a></span>
+    <span>Encode × Circle Programmable Money Hackathon</span>
   </div>
 
-  <div class="honest">
-    <b>Honest limitations:</b> <code>PREVRANDAO</code> returns 0 on Arc, so we use a commit-reveal draw seeded by a
-    pinned future block — better than same-block entropy, still not a VRF (the randomness source is swappable
-    for one when Arc gets it). Winner selection is O(n) and ERC-4626 rounding can cost a wei or two. Details in the
-    <a href="https://github.com/pr0br00/luckyarc#honest-limitations" target="_blank" rel="noopener">README</a>.
+  <div class="how">
+    <div class="step"><div class="n">01</div><h4>Deposit USDC</h4><p>Your deposit joins the pool and buys you tickets — odds proportional to your share. Withdraw the full amount anytime.</p></div>
+    <div class="step"><div class="n">02</div><h4>Prize pool grows</h4><p id="howPrize">Everything above principal — vault yield and sponsor top-ups — becomes the prize. Your principal is never touched.</p></div>
+    <div class="step"><div class="n">03</div><h4>Daily draw</h4><p>Every 24h anyone can trigger the permissionless two-step draw. One saver wins the whole prize. Everyone else loses nothing.</p></div>
   </div>
 
   <div class="grid" id="app">
     <div class="stat"><div class="v" id="tvl">—</div><div class="k">Total saved (USDC)</div></div>
     <div class="stat"><div class="v" id="players">—</div><div class="k">Savers in the pool</div></div>
     <div class="stat"><div class="v" id="draws">—</div><div class="k">Draws completed</div></div>
+    <div class="stat"><div class="v" id="paid">—</div><div class="k">Paid out (USDC)</div></div>
   </div>
 
   <div class="card">
     <h3>Deposit</h3>
     <div class="row">
-      <input id="depAmt" type="number" min="0" step="0.01" placeholder="USDC amount" />
+      <input id="depAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="USDC amount" />
       <button id="depBtn" disabled>Deposit</button>
     </div>
-    <div class="mybal" id="myBal">connect wallet to see your balance</div>
+    <div class="hint" id="myBal">Connect a wallet to see your balances. First deposit asks for a one-time USDC approval, then the deposit itself.</div>
   </div>
 
   <div class="card">
     <h3>Withdraw (anytime, no loss)</h3>
     <div class="row">
-      <input id="wdAmt" type="number" min="0" step="0.01" placeholder="USDC amount" />
+      <input id="wdAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="USDC amount" />
       <button id="wdBtn" class="ghost" disabled>Withdraw</button>
+      <button id="wdAllBtn" class="ghost" disabled>Max</button>
     </div>
   </div>
 
   <div class="card">
     <h3>Prize &amp; draw</h3>
     <div class="row">
-      <input id="fundAmt" type="number" min="0" step="0.01" placeholder="Sponsor the prize (USDC)" />
+      <input id="fundAmt" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Sponsor the prize (USDC)" />
       <button id="fundBtn" class="warn" disabled>Fund prize</button>
       <button id="drawBtn" class="ghost" disabled>Draw 🎲</button>
     </div>
-    <div class="mybal">The draw is permissionless and runs in two steps: <b>request</b> pins a future block, <b>execute</b> settles it from that block's hash. Nobody — not even the caller — can know the winner in advance. Odds are weighted by deposit size.</div>
+    <div class="hint">The draw is permissionless and runs in two steps: <b>request</b> pins a future block, <b>execute</b> settles it from that block's hash. Nobody — not even the caller — can know the winner in advance.</div>
   </div>
 
   <div class="card">
@@ -167,34 +219,73 @@
     <ul class="winners" id="winners"><li><span class="addr">no draws yet</span></li></ul>
   </div>
 
+  <div class="card token" id="token">
+    <div class="tag">Roadmap · not launched</div>
+    <h2>LUCKY token</h2>
+    <p>Planned after LuckyArc has real savers on Arc mainnet — not before. The design being considered:</p>
+    <ul>
+      <li><b>Boosted odds</b> — stake LUCKY alongside your USDC to increase your ticket weight in draws.</li>
+      <li><b>Earned by saving</b> — distributed to depositors and draw participants, not sold in a presale.</li>
+      <li><b>No token, no prize dilution</b> — principal stays 100% USDC either way.</li>
+    </ul>
+    <div class="warnbox">There is no LUCKY token yet. Any token, airdrop link or "presale" claiming to be LuckyArc is fake. The only official channels are this site, <a href="https://x.com/Luckyarcxyz" target="_blank" rel="noopener">@Luckyarcxyz</a> and the <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">GitHub repo</a>.</div>
+  </div>
+
+  <div class="card">
+    <h3>FAQ</h3>
+    <details><summary>Can I lose my deposit?</summary><p>No. Your USDC principal is tracked separately from the prize and is withdrawable in full at any time. Only the amount above principal (yield and sponsor top-ups) is ever paid out as a prize.</p></details>
+    <details><summary>Where does the prize come from?</summary><p id="faqPrize">Deposits sit in an ERC-4626 vault. Whatever the vault earns above the sum of user deposits, plus anything sponsors add via <code>fundPrize</code>, is the prize.</p></details>
+    <details><summary>How is the winner chosen?</summary><p>Weighted by deposit size — 100 USDC has 10× the odds of 10 USDC. The draw is two transactions: one pins a future block, the next reads that block's hash as the seed. On Arc <code>PREVRANDAO</code> is always 0, so single-transaction randomness would be grindable; the two-step design closes that.</p></details>
+    <details><summary>Who can trigger the draw?</summary><p>Anyone, once the 24h timer passes. A keeper does it automatically, but the button is yours too.</p></details>
+    <details><summary>Is there a token?</summary><p>Not yet. See the LUCKY section above — and treat anything claiming otherwise as a scam.</p></details>
+    <details><summary>Is this audited?</summary><p>No. It is open source with a test suite, and all limitations are listed in the README. Deposit only what you are comfortable with on new infrastructure.</p></details>
+  </div>
+
+  <div class="card honest">
+    <b>Honest limitations:</b> the commit-reveal draw is better than same-block entropy but is not a VRF (the randomness source is swappable for one when Arc gets it). Winner selection is O(n). ERC-4626 rounding can cost a wei or two. <span id="honestNet"></span> Details in the <a href="https://github.com/pr0br00/luckyarc#honest-limitations" target="_blank" rel="noopener">README</a>.
+  </div>
+
   <div class="foot">
-    contract: <a id="ctrLink" href="#" target="_blank" rel="noopener"></a>
-    · <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">GitHub</a>
-    · <a href="https://x.com/LuckyArcXYZ" target="_blank" rel="noopener">𝕏 @LuckyArcXYZ</a><br/>
-    built on <a href="https://arc.network" target="_blank" rel="noopener">Arc</a> testnet · USDC is gas · sub-second finality
+    <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://x.com/Luckyarcxyz" target="_blank" rel="noopener">𝕏 @Luckyarcxyz</a> ·
+    <a href="https://github.com/pr0br00/luckyarc/blob/main/posts/prevrandao-on-arc.md" target="_blank" rel="noopener">Dev notes</a><br/>
+    built on Arc · USDC is gas · sub-second finality
   </div>
 </div>
 <div id="toast"></div>
 
 <script>
-const CONTRACT = "0x875B1f472002a14A6FC8e8312A610CA5b20De488"; // V3 (commit-reveal draw)
+// ---- networks -------------------------------------------------------------
+const NETWORKS = {
+  testnet: {
+    label: "Testnet", chainId: 5042002n, chainHex: "0x4CEF52", name: "Arc Testnet",
+    contract: "0x875B1f472002a14A6FC8e8312A610CA5b20De488",
+    rpcs: ["https://rpc.drpc.testnet.arc.io", "https://rpc.testnet.arc.io", "https://rpc.drpc.testnet.arc.network"],
+    explorer: "https://explorer.testnet.arc.io",
+    prizeNote: "Deposits sit in the Lunex ERC-4626 vault; its yield above principal plus sponsor top-ups is the prize.",
+  },
+  mainnet: {
+    label: "Mainnet", chainId: 5042n, chainHex: "0x13B2", name: "Arc",
+    contract: "", // set after mainnet deploy
+    rpcs: ["https://rpc.drpc.mainnet.arc.io", "https://rpc.mainnet.arc.io"],
+    explorer: "https://explorer.arc.io",
+    prizeNote: "On mainnet the prize is sponsor-funded until an audited yield vault is live on Arc; deposits sit 1:1 in a passthrough vault.",
+  },
+};
 const USDC = "0x3600000000000000000000000000000000000000";
-const CHAIN_ID = 5042002n;
-const CHAIN_HEX = "0x4CEF52";
-const RPC = "https://rpc.testnet.arc.network";
-const DEC = 6n;
+const params = new URLSearchParams(location.search);
+const NET_KEY = params.get("net") === "mainnet" && NETWORKS.mainnet.contract ? "mainnet"
+  : (NETWORKS.mainnet.contract ? "mainnet" : "testnet");
+const NET = NETWORKS[NET_KEY];
+const CONTRACT = NET.contract;
 
 const LUCKY_ABI = [
-  "function deposit(uint256)", "function withdraw(uint256)",
-  "function fundPrize(uint256)",
+  "function deposit(uint256)", "function withdraw(uint256)", "function fundPrize(uint256)",
   "function requestDraw()", "function executeDraw()",
-  "function drawReady() view returns (bool)",
-  "function pinnedBlock() view returns (uint256)",
+  "function drawReady() view returns (bool)", "function pinnedBlock() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
-  "function totalDeposits() view returns (uint256)",
-  "function prizePool() view returns (uint256)",
-  "function playersCount() view returns (uint256)",
-  "function drawCount() view returns (uint256)",
+  "function totalDeposits() view returns (uint256)", "function prizePool() view returns (uint256)",
+  "function playersCount() view returns (uint256)", "function drawCount() view returns (uint256)",
   "function nextDrawAt() view returns (uint256)",
   "event DrawExecuted(uint256 indexed drawId, address indexed winner, uint256 prize)"
 ];
@@ -209,25 +300,32 @@ const fmt = (v) => (Number(v) / 1e6).toLocaleString("en-US", { maximumFractionDi
 const parse = (s) => BigInt(Math.round(parseFloat(s) * 1e6));
 const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 
-const RPC_FALLBACKS = [RPC, "https://rpc.drpc.testnet.arc.network", "https://rpc.blockdaemon.testnet.arc.network"];
-const ro = new ethers.FallbackProvider(RPC_FALLBACKS.map((u) => new ethers.JsonRpcProvider(u)), 1);
+const ro = new ethers.FallbackProvider(NET.rpcs.map((u) => new ethers.JsonRpcProvider(u)), 1);
 const luckyRo = new ethers.Contract(CONTRACT, LUCKY_ABI, ro);
-let signer = null, lucky = null, usdc = null, me = null, nextDraw = 0;
+let signer = null, lucky = null, usdc = null, me = null, nextDraw = 0, myDeposit = 0n;
 
+// ---- static wiring --------------------------------------------------------
+$("netPill").textContent = NET.label; $("netPill").className = "pill net " + NET_KEY;
+$("netPill").title = NET.name + " · chainId " + NET.chainId;
 $("ctrLink").textContent = short(CONTRACT);
-$("ctrLink").href = "https://testnet.arcscan.app/address/" + CONTRACT;
+$("ctrLink").href = NET.explorer + "/address/" + CONTRACT;
+$("howPrize").textContent = NET.prizeNote + " Your principal is never touched.";
+$("faqPrize").textContent = NET.prizeNote;
+$("honestNet").textContent = NET_KEY === "mainnet" ? "Mainnet prize is sponsor-funded until a yield vault exists." : "This is testnet USDC.";
 
-function toast(msg, ms = 4200) {
+function toast(msg, ms = 4200, link) {
   const t = $("toast");
-  t.textContent = msg; t.style.display = "block";
+  t.textContent = msg;
+  if (link) { const a = document.createElement("a"); a.href = link; a.target = "_blank"; a.rel = "noopener"; a.textContent = "view ↗"; t.appendChild(a); }
+  t.style.display = "block";
   clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), ms);
 }
 
+// ---- reads ----------------------------------------------------------------
 async function refresh() {
   try {
     const [tvl, prize, players, draws, next] = await Promise.all([
-      luckyRo.totalDeposits(), luckyRo.prizePool(), luckyRo.playersCount(),
-      luckyRo.drawCount(), luckyRo.nextDrawAt()
+      luckyRo.totalDeposits(), luckyRo.prizePool(), luckyRo.playersCount(), luckyRo.drawCount(), luckyRo.nextDrawAt()
     ]);
     $("tvl").textContent = fmt(tvl);
     $("prizePool").textContent = fmt(prize) + " USDC";
@@ -235,8 +333,9 @@ async function refresh() {
     $("draws").textContent = draws.toString();
     nextDraw = Number(next);
     if (me) {
-      const bal = await luckyRo.balanceOf(me);
-      $("myBal").textContent = `your deposit: ${fmt(bal)} USDC`;
+      const [dep, wal] = await Promise.all([luckyRo.balanceOf(me), new ethers.Contract(USDC, ERC20_ABI, ro).balanceOf(me)]);
+      myDeposit = dep;
+      $("myBal").innerHTML = `Your deposit: <b>${fmt(dep)} USDC</b> · wallet: <b>${fmt(wal)} USDC</b>`;
     }
   } catch (e) { console.error(e); }
 }
@@ -244,58 +343,57 @@ async function refresh() {
 function renderWinners(list) {
   if (!list.length) return;
   $("winners").innerHTML = list.slice(0, 8).map((w) =>
-    `<li><span>#${w.id} <span class="addr">${short(w.winner)}</span></span>` +
-    `<span class="win-amt">+${fmt(w.prize)} USDC</span></li>`
-  ).join("");
+    `<li><span>#${w.id} <a class="addr" href="${NET.explorer}/address/${w.winner}" target="_blank" rel="noopener">${short(w.winner)}</a></span>` +
+    `<span class="win-amt">+${fmt(w.prize)} USDC</span></li>`).join("");
+  const paid = list.reduce((s, w) => s + BigInt(w.prize), 0n);
+  $("paid").textContent = fmt(paid);
 }
 
 async function loadWinners() {
+  // 1) indexer file maintained by the keeper (full history, any age)
+  let indexed = [];
   try {
-    const cached = JSON.parse(localStorage.getItem("luckyarc_winners_v2") || "[]");
-    renderWinners(cached);
-    // RPC caps eth_getLogs at 10k blocks; scan last 30 windows (~30h) in parallel.
+    const all = await (await fetch("winners.json", { cache: "no-store" })).json();
+    indexed = all.filter((w) => w.contract && w.contract.toLowerCase() === CONTRACT.toLowerCase());
+  } catch (_) {}
+  // 2) live scan of the last ~30h as a safety net (RPC caps eth_getLogs at 10k blocks)
+  let live = [];
+  try {
     const head = await ro.getBlockNumber();
-    const SPAN = 9900, WINDOWS = 30;
-    const jobs = [];
+    const SPAN = 9900, WINDOWS = 30, jobs = [];
     for (let i = 0; i < WINDOWS; i++) {
-      const to = head - i * SPAN;
-      const from = Math.max(0, to - SPAN + 1);
+      const to = head - i * SPAN, from = Math.max(0, to - SPAN + 1);
       if (to <= 0) break;
       jobs.push(luckyRo.queryFilter(luckyRo.filters.DrawExecuted(), from, to).catch(() => []));
     }
-    const evs = (await Promise.all(jobs)).flat();
-    const found = evs.map((e) => ({
-      id: Number(e.args.drawId), winner: e.args.winner, prize: e.args.prize.toString(),
-    }));
-    const byId = {};
-    [...cached, ...found].forEach((w) => (byId[w.id] = w));
-    const merged = Object.values(byId).sort((a, b) => b.id - a.id);
-    localStorage.setItem("luckyarc_winners_v2", JSON.stringify(merged.slice(0, 50)));
-    renderWinners(merged);
+    live = (await Promise.all(jobs)).flat().map((e) => ({ id: Number(e.args.drawId), winner: e.args.winner, prize: e.args.prize.toString() }));
   } catch (e) { console.error(e); }
+  const byId = {};
+  [...indexed, ...live].forEach((w) => (byId[w.id] = w));
+  renderWinners(Object.values(byId).sort((a, b) => b.id - a.id));
 }
 
 function tick() {
   const s = nextDraw - Math.floor(Date.now() / 1000);
+  const p = (n) => String(n).padStart(2, "0");
   $("countdown").textContent = s > 0
-    ? `next draw in ${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+    ? `next draw in ${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`
     : "draw is ready — hit Draw 🎲";
   if (lucky) $("drawBtn").disabled = s > 0;
 }
 
+// ---- wallet ---------------------------------------------------------------
 async function connect() {
   if (!window.ethereum) return toast("No wallet found — install Rabby or MetaMask");
   const bp = new ethers.BrowserProvider(window.ethereum);
   await bp.send("eth_requestAccounts", []);
-  let net = await bp.getNetwork();
-  if (net.chainId !== CHAIN_ID) {
-    try {
-      await bp.send("wallet_switchEthereumChain", [{ chainId: CHAIN_HEX }]);
-    } catch (e) {
+  if ((await bp.getNetwork()).chainId !== NET.chainId) {
+    try { await bp.send("wallet_switchEthereumChain", [{ chainId: NET.chainHex }]); }
+    catch (e) {
       await bp.send("wallet_addEthereumChain", [{
-        chainId: CHAIN_HEX, chainName: "Arc Testnet",
+        chainId: NET.chainHex, chainName: NET.name,
         nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-        rpcUrls: [RPC], blockExplorerUrls: ["https://testnet.arcscan.app"]
+        rpcUrls: [NET.rpcs[NET.rpcs.length - 1]], blockExplorerUrls: [NET.explorer]
       }]);
     }
   }
@@ -303,9 +401,8 @@ async function connect() {
   me = await signer.getAddress();
   lucky = new ethers.Contract(CONTRACT, LUCKY_ABI, signer);
   usdc = new ethers.Contract(USDC, ERC20_ABI, signer);
-  $("connect").textContent = short(me);
-  $("connect").classList.add("connected");
-  ["depBtn", "wdBtn", "fundBtn"].forEach((b) => ($(b).disabled = false));
+  $("connect").textContent = short(me); $("connect").classList.add("connected");
+  ["depBtn", "wdBtn", "wdAllBtn", "fundBtn"].forEach((b) => ($(b).disabled = false));
   refresh();
 }
 
@@ -313,9 +410,9 @@ async function send(label, fn) {
   try {
     toast(label + "…", 60000);
     const tx = await fn();
-    toast(label + ": waiting for confirmation…", 60000);
+    toast(label + ": waiting for confirmation…", 60000, NET.explorer + "/tx/" + tx.hash);
     await tx.wait();
-    toast(label + " ✓");
+    toast(label + " ✓", 6000, NET.explorer + "/tx/" + tx.hash);
     refresh(); loadWinners();
   } catch (e) {
     toast((e.shortMessage || e.message || "failed").slice(0, 120));
@@ -325,8 +422,9 @@ async function send(label, fn) {
 async function approveIfNeeded(amount) {
   const al = await usdc.allowance(me, CONTRACT);
   if (al < amount) {
-    toast("Approving USDC…", 60000);
+    toast("Step 1/2 — approving USDC…", 60000);
     await (await usdc.approve(CONTRACT, amount * 10n)).wait();
+    toast("Approved. Step 2/2 — sending…", 4000);
   }
 }
 
@@ -337,6 +435,7 @@ $("depBtn").onclick = async () => {
   await approveIfNeeded(amt);
   send("Deposit", () => lucky.deposit(amt));
 };
+$("wdAllBtn").onclick = () => { $("wdAmt").value = (Number(myDeposit) / 1e6).toString(); };
 $("wdBtn").onclick = () => {
   const amt = parse($("wdAmt").value || "0");
   if (amt <= 0n) return toast("Enter an amount");
@@ -350,18 +449,14 @@ $("fundBtn").onclick = async () => {
 };
 $("drawBtn").onclick = async () => {
   try {
-    if (await luckyRo.drawReady()) {
-      return send("Execute draw", () => lucky.executeDraw());
-    }
+    if (await luckyRo.drawReady()) return send("Execute draw", () => lucky.executeDraw());
     const pinned = await luckyRo.pinnedBlock();
     if (pinned > 0n) {
       const head = BigInt(await ro.getBlockNumber());
-      return toast(`Draw already requested — reveal in ${pinned - head + 1n} blocks. Hit Draw again then.`);
+      return toast(`Draw requested — reveal in ${pinned - head + 1n} blocks. Hit Draw again then.`);
     }
     send("Request draw", () => lucky.requestDraw());
-  } catch (e) {
-    toast((e.shortMessage || e.message || "failed").slice(0, 120));
-  }
+  } catch (e) { toast((e.shortMessage || e.message || "failed").slice(0, 120)); }
 };
 
 refresh(); loadWinners();
