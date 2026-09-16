@@ -1,9 +1,11 @@
-"""LuckyArc keeper: tops up the prize (0.5 USDC) when empty, triggers draw when due.
+"""LuckyArc keeper: tops up the prize when empty, runs the two-phase draw when due,
+records winners to docs/winners.json for the site.
 
 Run periodically (launchd). Safe to run any time — every action is guarded.
     ~/arc-onchain-farmer/.venv/bin/python scripts/keeper.py
 """
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -12,18 +14,17 @@ from web3 import Web3
 
 FARMER = Path.home() / "arc-onchain-farmer"
 sys.path.insert(0, str(FARMER))
-import config  # noqa: E402
+import config  # noqa: E402  (testnet burner: RPC_URL, CHAIN_ID, PRIVATE_KEY)
 
-# (address, abi_name, top_up_enabled). Older versions stay draw-only.
-CONTRACTS = [
-    ("0xc90D9550aD006702e0a28729FbE88C41bAd2c225", "LuckyArcV2", False),  # legacy
-    ("0x875B1f472002a14A6FC8e8312A610CA5b20De488", "LuckyArcV3", True),   # primary
-]
+REPO = Path(__file__).resolve().parent.parent
+BUILD = REPO / "build"
+LOG = REPO / "keeper-log.txt"
+WINNERS = REPO / "docs" / "winners.json"
+
 USDC = "0x3600000000000000000000000000000000000000"
 U = 10**6
-PRIZE_TOPUP = U // 2        # 0.5 USDC
-MIN_WALLET_BALANCE = 5 * U  # stop topping up below 5 USDC
-LOG = Path(__file__).resolve().parent.parent / "keeper-log.txt"
+PRIZE_TOPUP = U // 2   # 0.5 USDC
+MIN_PRIZE = 10_000     # contracts reject dust draws below 0.01 USDC
 
 ERC20_ABI = [
     {"name": "approve", "type": "function", "stateMutability": "nonpayable",
@@ -37,6 +38,42 @@ ERC20_ABI = [
 ]
 
 
+def _luckyarc_env(key):
+    env = REPO / ".env"
+    if env.exists():
+        for line in env.read_text().splitlines():
+            if line.startswith(key + "="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+# Per-network config. Testnet signs with the farmer burner (config.py);
+# mainnet signs with the dedicated deployer key in ~/luckyarc/.env.
+NETS = {
+    "testnet": {
+        "chain_id": config.CHAIN_ID,
+        "key": config.PRIVATE_KEY,
+        "rpcs": ["https://rpc.drpc.testnet.arc.io", "https://rpc.testnet.arc.io",
+                 "https://rpc.drpc.testnet.arc.network", config.RPC_URL],
+        "reserve": 5 * U,
+    },
+    "mainnet": {
+        "chain_id": 5042,
+        "key": _luckyarc_env("LUCKYARC_MAINNET_KEY"),
+        "rpcs": ["https://rpc.drpc.mainnet.arc.io", "https://rpc.mainnet.arc.io",
+                 "https://rpc.blockdaemon.mainnet.arc.io"],
+        "reserve": 2 * U,  # real USDC: stop topping up below this
+    },
+}
+
+# (net, address, abi_name, top_up_enabled). Older versions stay draw-only.
+CONTRACTS = [
+    ("testnet", "0xc90D9550aD006702e0a28729FbE88C41bAd2c225", "LuckyArcV2", False),  # legacy
+    ("testnet", "0x875B1f472002a14A6FC8e8312A610CA5b20De488", "LuckyArcV3", True),
+    ("mainnet", "0xF611b39e8aDB90357e4bD7035F11194D207c1844", "LuckyArcV3", True),
+]
+
+
 def log(msg):
     line = f"[{time.strftime('%Y-%m-%dT%H:%M:%S%z')}] {msg}"
     print(line)
@@ -44,13 +81,36 @@ def log(msg):
         f.write(line + "\n")
 
 
-REPO = Path(__file__).resolve().parent.parent
-WINNERS = REPO / "docs" / "winners.json"
+def connect(net):
+    for url in NETS[net]["rpcs"]:
+        try:
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 15}))
+            assert w3.eth.chain_id == NETS[net]["chain_id"]
+            log(f"[{net}] rpc: {url}")
+            return w3
+        except Exception as e:
+            log(f"[{net}] rpc {url} unusable: {type(e).__name__}")
+    raise RuntimeError(f"no usable RPC for {net}")
 
 
-def record_winner(contract, ev, txhash, net="testnet"):
+def send(w3, net, acct, tx_fn, label):
+    tx = tx_fn.build_transaction({
+        "from": acct.address,
+        "nonce": w3.eth.get_transaction_count(acct.address),
+        "chainId": NETS[net]["chain_id"],
+    })
+    signed = acct.sign_transaction(tx)
+    raw = getattr(signed, "raw_transaction", None) or signed.rawTransaction
+    h = w3.eth.send_raw_transaction(raw)
+    r = w3.eth.wait_for_transaction_receipt(h, timeout=120)
+    if r.status != 1:
+        raise RuntimeError(f"{label} REVERTED {h.hex()}")
+    log(f"[{net}] {label}: ok {h.hex()}")
+    return r
+
+
+def record_winner(net, contract, ev, txhash):
     """Append a draw result to docs/winners.json and push — the site's history index."""
-    import subprocess
     rows = json.loads(WINNERS.read_text()) if WINNERS.exists() else []
     rows.append({
         "net": net, "contract": contract, "id": int(ev["drawId"]),
@@ -59,38 +119,26 @@ def record_winner(contract, ev, txhash, net="testnet"):
     })
     WINNERS.write_text(json.dumps(rows, indent=1))
     try:
-        subprocess.run(["git", "add", "docs/winners.json"], cwd=REPO, check=True, capture_output=True)
-        subprocess.run(["git", "-c", "user.name=luckyarc-keeper", "-c", "user.email=keeper@luckyarc.xyz",
-                        "commit", "-qm", f"winners: {net} draw #{int(ev['drawId'])}"],
+        git = ["git", "-c", "user.name=luckyarc-keeper", "-c", "user.email=keeper@luckyarc.xyz"]
+        subprocess.run(git + ["add", "docs/winners.json"], cwd=REPO, check=True, capture_output=True)
+        subprocess.run(git + ["commit", "-qm", f"winners: {net} draw #{int(ev['drawId'])}"],
                        cwd=REPO, check=True, capture_output=True)
-        subprocess.run(["git", "push", "-q"], cwd=REPO, check=True, capture_output=True, timeout=60)
+        subprocess.run(git + ["pull", "--rebase", "-q"], cwd=REPO, check=True, capture_output=True, timeout=60)
+        subprocess.run(git + ["push", "-q"], cwd=REPO, check=True, capture_output=True, timeout=60)
         log("winners.json pushed")
     except Exception as e:
         log(f"winners.json push failed (kept locally): {e}")
 
 
-def send(w3, acct, tx_fn, label):
-    tx = tx_fn.build_transaction({
-        "from": acct.address,
-        "nonce": w3.eth.get_transaction_count(acct.address),
-        "chainId": config.CHAIN_ID,
-    })
-    signed = acct.sign_transaction(tx)
-    raw = getattr(signed, "raw_transaction", None) or signed.rawTransaction
-    h = w3.eth.send_raw_transaction(raw)
-    r = w3.eth.wait_for_transaction_receipt(h, timeout=120)
-    if r.status != 1:
-        log(f"{label}: REVERTED {h.hex()}")
-        raise SystemExit(1)
-    log(f"{label}: ok {h.hex()}")
-    return r
+def settle(w3, net, acct, lucky, addr):
+    r = send(w3, net, acct, lucky.functions.executeDraw(), "executeDraw")
+    ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
+    log(f"[{net}] WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+    record_winner(net, addr, ev, r.transactionHash.hex())
 
 
-MIN_PRIZE = 10_000  # V2 rejects dust draws below 0.01 USDC
-
-
-def run_contract(w3, acct, usdc, addr, abi_name, top_up):
-    abi = json.loads((Path(__file__).resolve().parent.parent / "build" / f"{abi_name}.json").read_text())["abi"]
+def run_contract(w3, net, acct, usdc, addr, abi_name, top_up):
+    abi = json.loads((BUILD / f"{abi_name}.json").read_text())["abi"]
     lucky = w3.eth.contract(address=Web3.to_checksum_address(addr), abi=abi)
     two_phase = any(f.get("name") == "requestDraw" for f in abi)
 
@@ -99,96 +147,75 @@ def run_contract(w3, acct, usdc, addr, abi_name, top_up):
     next_draw = lucky.functions.nextDrawAt().call()
     now = w3.eth.get_block("latest")["timestamp"]
     wallet = usdc.functions.balanceOf(acct.address).call()
-    log(f"{addr[:8]} ({abi_name}): prize={prize/U} players={players} "
+    log(f"[{net}] {addr[:8]} ({abi_name}): prize={prize/U} players={players} "
         f"wallet={wallet/U} draw_in={max(0, next_draw-now)}s")
 
     if top_up and prize < MIN_PRIZE and players > 0:
-        if wallet >= MIN_WALLET_BALANCE:
+        if wallet >= NETS[net]["reserve"] + PRIZE_TOPUP:
             if usdc.functions.allowance(acct.address, lucky.address).call() < PRIZE_TOPUP:
-                send(w3, acct, usdc.functions.approve(lucky.address, 100 * U), "approve")
-            send(w3, acct, lucky.functions.fundPrize(PRIZE_TOPUP), f"fundPrize {PRIZE_TOPUP/U}")
+                send(w3, net, acct, usdc.functions.approve(lucky.address, 100 * U), "approve")
+            send(w3, net, acct, lucky.functions.fundPrize(PRIZE_TOPUP), f"fundPrize {PRIZE_TOPUP/U}")
             prize = lucky.functions.prizePool().call()
         else:
-            log("skip topup: wallet below reserve")
+            log(f"[{net}] skip topup: wallet below reserve")
 
     if players == 0 or prize < MIN_PRIZE:
-        log("nothing to draw")
+        log(f"[{net}] nothing to draw")
         return
 
     if not two_phase:
         if now >= next_draw:
-            r = send(w3, acct, lucky.functions.draw(), "draw")
+            r = send(w3, net, acct, lucky.functions.draw(), "draw")
             ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
-            log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
-        record_winner(addr, ev, r.transactionHash.hex())
+            log(f"[{net}] WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
+            record_winner(net, addr, ev, r.transactionHash.hex())
         else:
-            log("no draw this run")
+            log(f"[{net}] no draw this run")
         return
 
-    # Two-phase: settle a ripe request, otherwise open one.
+    # Two-phase: settle a ripe request, otherwise open one and settle it right away.
     if lucky.functions.drawReady().call():
-        r = send(w3, acct, lucky.functions.executeDraw(), "executeDraw")
-        ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
-        log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
-        record_winner(addr, ev, r.transactionHash.hex())
+        settle(w3, net, acct, lucky, addr)
         return
 
     pinned = lucky.functions.pinnedBlock().call()
     head = w3.eth.block_number
     if pinned != 0 and head <= pinned:
-        log(f"request pending, reveal at block {pinned} (in {pinned - head})")
+        log(f"[{net}] request pending, reveal at block {pinned} (in {pinned - head})")
     elif now >= next_draw:
-        send(w3, acct, lucky.functions.requestDraw(), "requestDraw")
+        send(w3, net, acct, lucky.functions.requestDraw(), "requestDraw")
         target = lucky.functions.pinnedBlock().call()
-        # Arc blocks are ~1s, so the reveal window opens almost immediately.
-        for _ in range(60):
+        for _ in range(60):  # Arc blocks are ~1s; the reveal window opens almost immediately
             if w3.eth.block_number > target:
                 break
             time.sleep(2)
         if lucky.functions.drawReady().call():
-            r = send(w3, acct, lucky.functions.executeDraw(), "executeDraw")
-            ev = lucky.events.DrawExecuted().process_receipt(r)[0]["args"]
-            log(f"WINNER {addr[:8]} draw#{ev['drawId']}: {ev['winner']} +{ev['prize']/U} USDC")
-        record_winner(addr, ev, r.transactionHash.hex())
+            settle(w3, net, acct, lucky, addr)
         else:
-            log("requested; will execute on next run")
+            log(f"[{net}] requested; will execute on next run")
     else:
-        log("no draw this run")
-
-
-# Primary is heavily rate-limited (429s on bursts) — prefer provider mirrors.
-RPCS = [
-    "https://rpc.drpc.testnet.arc.network",
-    "https://rpc.blockdaemon.testnet.arc.network",
-    "https://rpc.quicknode.testnet.arc.network",
-    config.RPC_URL,
-]
-
-
-def connect():
-    """First endpoint that answers eth_blockNumber wins (primary is rate-limited lately)."""
-    for url in RPCS:
-        try:
-            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 15}))
-            w3.eth.block_number
-            log(f"rpc: {url}")
-            return w3
-        except Exception as e:
-            log(f"rpc {url} unusable: {type(e).__name__}")
-    raise SystemExit("no usable RPC")
+        log(f"[{net}] no draw this run")
 
 
 def main():
-    w3 = connect()
-    acct = w3.eth.account.from_key(config.PRIVATE_KEY)
-    usdc = w3.eth.contract(address=Web3.to_checksum_address(USDC), abi=ERC20_ABI)
-    for addr, abi_name, top_up in CONTRACTS:
+    conns = {}
+    for net, addr, abi_name, top_up in CONTRACTS:
         try:
-            run_contract(w3, acct, usdc, addr, abi_name, top_up)
-        except SystemExit:
-            raise
+            if net not in conns:
+                key = NETS[net]["key"]
+                if not key:
+                    log(f"[{net}] no key configured, skipping")
+                    conns[net] = None
+                    continue
+                w3 = connect(net)
+                conns[net] = (w3, w3.eth.account.from_key(key),
+                              w3.eth.contract(address=Web3.to_checksum_address(USDC), abi=ERC20_ABI))
+            if conns[net] is None:
+                continue
+            w3, acct, usdc = conns[net]
+            run_contract(w3, net, acct, usdc, addr, abi_name, top_up)
         except Exception as e:  # keep going if one contract hiccups
-            log(f"{addr[:8]}: ERROR {e}")
+            log(f"[{net}] {addr[:8]}: ERROR {e}")
 
 
 if __name__ == "__main__":

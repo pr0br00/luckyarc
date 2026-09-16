@@ -220,15 +220,17 @@
   </div>
 
   <div class="card token" id="token">
-    <div class="tag">Roadmap · not launched</div>
+    <div class="tag" id="tokenTag">Launching</div>
     <h2>LUCKY token</h2>
-    <p>Planned after LuckyArc has real savers on Arc mainnet — not before. The design being considered:</p>
+    <p id="tokenLead">The LuckyArc community token, launched on a bonding-curve launchpad on Arc mainnet.</p>
+    <div class="row" id="tokenLinks" style="margin-top:12px; flex-wrap:wrap"></div>
+    <p style="margin-top:14px"><b style="color:var(--text)">Utility roadmap</b></p>
     <ul>
-      <li><b>Boosted odds</b> — stake LUCKY alongside your USDC to increase your ticket weight in draws.</li>
-      <li><b>Earned by saving</b> — distributed to depositors and draw participants, not sold in a presale.</li>
-      <li><b>No token, no prize dilution</b> — principal stays 100% USDC either way.</li>
+      <li><b>Boosted odds</b> — stake LUCKY alongside your USDC to increase your ticket weight in draws (next contract version, after testnet soak).</li>
+      <li><b>Saver rewards</b> — a share of supply reserved for depositors, distributed by time in the pool.</li>
+      <li><b>No prize dilution</b> — principal stays 100% USDC; LUCKY never touches the prize pool.</li>
     </ul>
-    <div class="warnbox">There is no LUCKY token yet. Any token, airdrop link or "presale" claiming to be LuckyArc is fake. The only official channels are this site, <a href="https://x.com/Luckyarcxyz" target="_blank" rel="noopener">@Luckyarcxyz</a> and the <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">GitHub repo</a>.</div>
+    <div class="warnbox" id="tokenWarn">The only official LUCKY contract address is the one shown on this page. Any other token, airdrop link or "presale" using the LuckyArc name is fake. Official channels: this site, <a href="https://x.com/Luckyarcxyz" target="_blank" rel="noopener">@Luckyarcxyz</a>, <a href="https://github.com/pr0br00/luckyarc" target="_blank" rel="noopener">GitHub</a>.</div>
   </div>
 
   <div class="card">
@@ -237,7 +239,7 @@
     <details><summary>Where does the prize come from?</summary><p id="faqPrize">Deposits sit in an ERC-4626 vault. Whatever the vault earns above the sum of user deposits, plus anything sponsors add via <code>fundPrize</code>, is the prize.</p></details>
     <details><summary>How is the winner chosen?</summary><p>Weighted by deposit size — 100 USDC has 10× the odds of 10 USDC. The draw is two transactions: one pins a future block, the next reads that block's hash as the seed. On Arc <code>PREVRANDAO</code> is always 0, so single-transaction randomness would be grindable; the two-step design closes that.</p></details>
     <details><summary>Who can trigger the draw?</summary><p>Anyone, once the 24h timer passes. A keeper does it automatically, but the button is yours too.</p></details>
-    <details><summary>Is there a token?</summary><p>Not yet. See the LUCKY section above — and treat anything claiming otherwise as a scam.</p></details>
+    <details><summary>Is there a token?</summary><p>LUCKY is launching on an Arc launchpad. Its contract address appears in the LUCKY section above the moment it is live; anything else using the name is a scam. It does not affect the prize or your principal.</p></details>
     <details><summary>Is this audited?</summary><p>No. It is open source with a test suite, and all limitations are listed in the README. Deposit only what you are comfortable with on new infrastructure.</p></details>
   </div>
 
@@ -266,13 +268,15 @@ const NETWORKS = {
   },
   mainnet: {
     label: "Mainnet", chainId: 5042n, chainHex: "0x13B2", name: "Arc",
-    contract: "", // set after mainnet deploy
+    contract: "0xF611b39e8aDB90357e4bD7035F11194D207c1844", // V3 + PassthroughVault, live 2026-09-16
     rpcs: ["https://rpc.drpc.mainnet.arc.io", "https://rpc.mainnet.arc.io"],
     explorer: "https://explorer.arc.io",
     prizeNote: "On mainnet the prize is sponsor-funded until an audited yield vault is live on Arc; deposits sit 1:1 in a passthrough vault.",
   },
 };
 const USDC = "0x3600000000000000000000000000000000000000";
+// LUCKY token — filled in once launched. Empty address = "launching" state.
+const TOKEN = { address: "", launchpad: "", buyUrl: "", explorer: "https://explorer.arc.io" };
 const params = new URLSearchParams(location.search);
 const NET_KEY = params.get("net") === "mainnet" && NETWORKS.mainnet.contract ? "mainnet"
   : (NETWORKS.mainnet.contract ? "mainnet" : "testnet");
@@ -315,6 +319,18 @@ $("ctrLink").href = NET.explorer + "/address/" + CONTRACT;
 $("howPrize").textContent = NET.prizeNote + " Your principal is never touched.";
 $("faqPrize").textContent = NET.prizeNote;
 $("honestNet").textContent = NET_KEY === "mainnet" ? "Mainnet prize is sponsor-funded until a yield vault exists." : "This is testnet USDC.";
+
+if (TOKEN.address) {
+  $("tokenTag").textContent = "Live on " + (TOKEN.launchpad || "Arc mainnet");
+  $("tokenLead").innerHTML = `Contract <code>${TOKEN.address}</code>`;
+  const links = [];
+  if (TOKEN.buyUrl) links.push(`<a class="cta" style="margin:0" href="${TOKEN.buyUrl}" target="_blank" rel="noopener">Buy / trade LUCKY ↗</a>`);
+  links.push(`<a class="pill" href="${TOKEN.explorer}/token/${TOKEN.address}" target="_blank" rel="noopener">Explorer ↗</a>`);
+  $("tokenLinks").innerHTML = links.join("");
+} else {
+  $("tokenTag").textContent = "Launching · address will appear here";
+  $("tokenLinks").innerHTML = `<span class="hint" style="margin:0">Not live yet. Until an address is shown here, no LUCKY token exists — do not buy anything claiming to be it.</span>`;
+}
 
 function toast(msg, ms = 4200, link) {
   const t = $("toast");

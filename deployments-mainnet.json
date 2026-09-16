@@ -1,0 +1,9 @@
+{
+ "net": "mainnet",
+ "chainId": 5042,
+ "vault": "0xbe35270C0C70F9599440b89927BF2162e440f158",
+ "randomness": "0x86Bfc11b4e02d26944e3db984eFF5c09fd12F35C",
+ "luckyarc": "0xF611b39e8aDB90357e4bD7035F11194D207c1844",
+ "deployer": "0xA806f7846CDefaC5081BFc65e4dC503985E80044",
+ "block": 21167768
+}
