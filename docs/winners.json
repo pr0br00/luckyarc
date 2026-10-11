@@ -448,5 +448,14 @@
   "prize": "499999",
   "tx": "162a0a1e56462319a4301ca52eaf20b84ac3dd58accfd6252d65ae828c4a11c6",
   "ts": 1791725446
+ },
+ {
+  "net": "mainnet",
+  "contract": "0xF611b39e8aDB90357e4bD7035F11194D207c1844",
+  "id": 19,
+  "winner": "0xA806f7846CDefaC5081BFc65e4dC503985E80044",
+  "prize": "500000",
+  "tx": "6e44564deaca86ac02760eb5cdb810203bf589f02a5b0d27b7cc48f1a8145492",
+  "ts": 1791725459
  }
 ]
