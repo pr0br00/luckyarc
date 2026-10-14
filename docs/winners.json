@@ -475,5 +475,14 @@
   "prize": "500000",
   "tx": "56362d3cab55c3c46fb032b0d52d097febd0397ffb604f48c782273be67e98b3",
   "ts": 1791833429
+ },
+ {
+  "net": "testnet",
+  "contract": "0x875B1f472002a14A6FC8e8312A610CA5b20De488",
+  "id": 34,
+  "winner": "0xF816a712C6eA303a3285EE073cd563d18e88551D",
+  "prize": "499999",
+  "tx": "1dad10cc668c704c5a8808b5a8d78cdd285da5a0105a06eea78d12385afb5f0f",
+  "ts": 1791963015
  }
 ]
